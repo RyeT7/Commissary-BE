@@ -1,0 +1,9 @@
+# Copy to config.yaml (git-ignored) and adjust. Env vars may override these.
+http_addr: ":8080"
+grpc_addr: ":9090"
+
+# Local filesystem blob store (development default).
+blob_dir: "./data/blobs"
+
+# Metadata store (used once the Postgres adapter is implemented).
+database_url: "postgres://commissary:commissary@localhost:5432/commissary?sslmode=disable"

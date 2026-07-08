@@ -1,0 +1,24 @@
+# Build output
+/bin/
+/dist/
+commissary
+commissary.exe
+
+# Local blob storage & data
+/data/
+
+# Local config (keep config.example.yaml tracked)
+/configs/config.yaml
+*.local.yaml
+.env
+
+# Go
+*.test
+*.out
+coverage.*
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
