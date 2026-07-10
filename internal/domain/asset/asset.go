@@ -1,6 +1,9 @@
 package asset
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type Asset struct {
 	ID         ID
@@ -25,3 +28,20 @@ const (
 	KindAudio    Kind = "audio"
 	KindOther    Kind = "other"
 )
+
+func KindFromMIME(m MIMEType) Kind {
+	switch {
+	case strings.HasPrefix(string(m), "video/"):
+		return KindVideo
+	case strings.HasPrefix(string(m), "audio/"):
+		return KindAudio
+	case strings.HasPrefix(string(m), "image/"):
+		return KindImage
+	case m == "":
+		return KindOther
+	default:
+		return KindDocument
+	}
+}
+
+func (a *Asset) Kind() Kind { return KindFromMIME(a.MIMEType) }
