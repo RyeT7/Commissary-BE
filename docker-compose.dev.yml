@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: commissary
+      POSTGRES_PASSWORD: commissary
+      POSTGRES_DB: commissary
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U commissary -d commissary"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HTTP_ADDR: ":8080"
+      GRPC_ADDR: ":9090"
+      BLOB_DIR: "/data/blobs"
+      DATABASE_URL: "postgres://commissary:commissary@postgres:5432/commissary?sslmode=disable"
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    volumes:
+      - blob-data:/data/blobs
+
+volumes:
+  postgres-data:
+  blob-data:

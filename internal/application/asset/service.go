@@ -9,6 +9,7 @@ import (
 
 	"commissary/internal/application/port"
 	domain "commissary/internal/domain/asset"
+	"commissary/internal/domain/folder"
 )
 
 type Service struct {
@@ -22,6 +23,7 @@ func NewService(blobs port.BlobStore, repo port.AssetRepository) *Service {
 
 type UploadCommand struct {
 	OwnerID  string
+	FolderID *folder.ID
 	Name     string
 	MIMEType domain.MIMEType
 	Size     int64
@@ -53,6 +55,7 @@ func (s *Service) Upload(ctx context.Context, cmd UploadCommand) (*domain.Asset,
 	a := &domain.Asset{
 		ID:         id,
 		OwnerID:    cmd.OwnerID,
+		FolderID:   cmd.FolderID,
 		Name:       cmd.Name,
 		MIMEType:   cmd.MIMEType,
 		Size:       written,

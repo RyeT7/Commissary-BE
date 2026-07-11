@@ -6,7 +6,15 @@ import (
 
 	"commissary/internal/application/port"
 	"commissary/internal/domain/asset"
+	"commissary/internal/domain/folder"
 )
+
+func sameFolderID(a, b *folder.ID) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
 
 type Store struct {
 	mu   sync.RWMutex
@@ -36,6 +44,19 @@ func (s *Store) FindByID(ctx context.Context, id asset.ID) (*asset.Asset, error)
 	}
 	cp := *a
 	return &cp, nil
+}
+
+func (s *Store) ListByFolder(ctx context.Context, ownerID string, folderID *folder.ID) ([]*asset.Asset, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	result := make([]*asset.Asset, 0)
+	for _, a := range s.data {
+		if a.OwnerID == ownerID && sameFolderID(a.FolderID, folderID) {
+			cp := *a
+			result = append(result, &cp)
+		}
+	}
+	return result, nil
 }
 
 func (s *Store) Delete(ctx context.Context, id asset.ID) error {

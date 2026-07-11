@@ -3,6 +3,8 @@ package asset
 import (
 	"strings"
 	"time"
+
+	"commissary/internal/domain/folder"
 )
 
 type Asset struct {
@@ -13,7 +15,7 @@ type Asset struct {
 	Size       int64
 	Checksum   Checksum
 	StorageKey StorageKey
-	FolderID   *ID
+	FolderID   *folder.ID
 	Tags       []string
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
