@@ -1,34 +1,34 @@
-CREATE TABLE folders (
+CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
-    parent_id TEXT REFERENCES folders (id) ON DELETE CASCADE,
-    owner_id TEXT NOT NULL,
-    name TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX folders_parent_id_idx ON folders (parent_id);
-
-CREATE UNIQUE INDEX folders_owner_parent_name_idx
-    ON folders (owner_id, COALESCE(parent_id, ''), name);
-
-CREATE TABLE assets (
+CREATE TABLE IF NOT EXISTS channels (
     id TEXT PRIMARY KEY,
-    folder_id TEXT REFERENCES folders (id) ON DELETE CASCADE,
-    owner_id TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    handle TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS channels_user_id_idx ON channels (user_id);
+
+CREATE TABLE IF NOT EXISTS videos (
+    id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL REFERENCES channels (id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    storage_key TEXT NOT NULL,
     mime_type TEXT NOT NULL,
     size BIGINT NOT NULL,
-    checksum TEXT NOT NULL,
-    storage_key TEXT NOT NULL,
-    tags TEXT[] NOT NULL DEFAULT '{}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    thumbnail_key TEXT NOT NULL DEFAULT '',
+    thumbnail_mime TEXT NOT NULL DEFAULT '',
+    views BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX assets_folder_id_idx ON assets (folder_id);
+CREATE INDEX IF NOT EXISTS videos_channel_id_idx ON videos (channel_id);
 
-CREATE UNIQUE INDEX assets_owner_folder_name_idx
-    ON assets (owner_id, COALESCE(folder_id, ''), name);
-
-CREATE INDEX assets_tags_idx ON assets USING GIN (tags);
+CREATE INDEX IF NOT EXISTS videos_created_at_idx ON videos (created_at DESC);

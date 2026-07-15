@@ -1,14 +1,13 @@
 package localfs
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
 
-	"context"
-
 	"commissary/internal/application/port"
-	"commissary/internal/domain/asset"
+	"commissary/internal/domain/video"
 )
 
 type Store struct {
@@ -19,11 +18,11 @@ func New(root string) *Store { return &Store{root: root} }
 
 var _ port.BlobStore = (*Store)(nil)
 
-func (s *Store) path(key asset.StorageKey) string {
+func (s *Store) path(key video.StorageKey) string {
 	return filepath.Join(s.root, filepath.FromSlash(string(key)))
 }
 
-func (s *Store) Put(ctx context.Context, key asset.StorageKey, r io.Reader, size int64) (int64, error) {
+func (s *Store) Put(ctx context.Context, key video.StorageKey, r io.Reader, size int64) (int64, error) {
 	p := s.path(key)
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return 0, err
@@ -40,11 +39,11 @@ func (s *Store) Put(ctx context.Context, key asset.StorageKey, r io.Reader, size
 	return n, f.Sync()
 }
 
-func (s *Store) Get(ctx context.Context, key asset.StorageKey) (io.ReadCloser, error) {
+func (s *Store) Get(ctx context.Context, key video.StorageKey) (io.ReadCloser, error) {
 	return os.Open(s.path(key))
 }
 
-func (s *Store) GetRange(ctx context.Context, key asset.StorageKey, rng port.ByteRange) (io.ReadCloser, error) {
+func (s *Store) GetRange(ctx context.Context, key video.StorageKey, rng port.ByteRange) (io.ReadCloser, error) {
 	f, err := os.Open(s.path(key))
 	if err != nil {
 		return nil, err
@@ -57,7 +56,7 @@ func (s *Store) GetRange(ctx context.Context, key asset.StorageKey, rng port.Byt
 	return &limitedFile{f: f, r: io.LimitReader(f, length)}, nil
 }
 
-func (s *Store) Size(ctx context.Context, key asset.StorageKey) (int64, error) {
+func (s *Store) Size(ctx context.Context, key video.StorageKey) (int64, error) {
 	fi, err := os.Stat(s.path(key))
 	if err != nil {
 		return 0, err
@@ -65,7 +64,7 @@ func (s *Store) Size(ctx context.Context, key asset.StorageKey) (int64, error) {
 	return fi.Size(), nil
 }
 
-func (s *Store) Delete(ctx context.Context, key asset.StorageKey) error {
+func (s *Store) Delete(ctx context.Context, key video.StorageKey) error {
 	err := os.Remove(s.path(key))
 	if os.IsNotExist(err) {
 		return nil

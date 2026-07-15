@@ -3,9 +3,10 @@ package port
 import (
 	"context"
 	"io"
+	"time"
 
-	"commissary/internal/domain/asset"
-	"commissary/internal/domain/folder"
+	"commissary/internal/domain/account"
+	"commissary/internal/domain/video"
 )
 
 type ByteRange struct {
@@ -14,24 +15,44 @@ type ByteRange struct {
 }
 
 type BlobStore interface {
-	Put(ctx context.Context, key asset.StorageKey, r io.Reader, size int64) (written int64, err error)
-	Get(ctx context.Context, key asset.StorageKey) (io.ReadCloser, error)
-	GetRange(ctx context.Context, key asset.StorageKey, rng ByteRange) (io.ReadCloser, error)
-	Size(ctx context.Context, key asset.StorageKey) (int64, error)
-	Delete(ctx context.Context, key asset.StorageKey) error
+	Put(ctx context.Context, key video.StorageKey, r io.Reader, size int64) (written int64, err error)
+	Get(ctx context.Context, key video.StorageKey) (io.ReadCloser, error)
+	GetRange(ctx context.Context, key video.StorageKey, rng ByteRange) (io.ReadCloser, error)
+	Size(ctx context.Context, key video.StorageKey) (int64, error)
+	Delete(ctx context.Context, key video.StorageKey) error
 }
 
-type AssetRepository interface {
-	Save(ctx context.Context, a *asset.Asset) error
-	FindByID(ctx context.Context, id asset.ID) (*asset.Asset, error)
-	ListByFolder(ctx context.Context, ownerID string, folderID *folder.ID) ([]*asset.Asset, error)
-	Delete(ctx context.Context, id asset.ID) error
+type AccountRepository interface {
+	Register(ctx context.Context, u *account.User, c *account.Channel) error
 }
 
-type FolderRepository interface {
-	Save(ctx context.Context, f *folder.Folder) error
-	FindByID(ctx context.Context, id folder.ID) (*folder.Folder, error)
-	FindByParentAndName(ctx context.Context, ownerID string, parentID *folder.ID, name string) (*folder.Folder, error)
-	ListChildren(ctx context.Context, ownerID string, parentID *folder.ID) ([]*folder.Folder, error)
-	Delete(ctx context.Context, id folder.ID) error
+type UserRepository interface {
+	FindByID(ctx context.Context, id account.UserID) (*account.User, error)
+	FindByEmail(ctx context.Context, email string) (*account.User, error)
+}
+
+type ChannelRepository interface {
+	FindByID(ctx context.Context, id account.ChannelID) (*account.Channel, error)
+	FindByUserID(ctx context.Context, userID account.UserID) (*account.Channel, error)
+}
+
+type VideoRepository interface {
+	Save(ctx context.Context, v *video.Video) error
+	FindByID(ctx context.Context, id video.ID) (*video.Video, error)
+	ListRecent(ctx context.Context, limit int) ([]*video.Video, error)
+	ListByChannel(ctx context.Context, channelID string) ([]*video.Video, error)
+	IncrementViews(ctx context.Context, id video.ID) error
+}
+
+type Session struct {
+	Token     string
+	UserID    account.UserID
+	ExpiresAt time.Time
+}
+
+type SessionRepository interface {
+	Save(ctx context.Context, s Session) error
+	Find(ctx context.Context, token string) (Session, error)
+	Delete(ctx context.Context, token string) error
+	DeleteExpired(ctx context.Context) error
 }
