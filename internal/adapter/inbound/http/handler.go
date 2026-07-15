@@ -1,7 +1,10 @@
 package http
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +31,7 @@ type Options struct {
 	MaxUploadBytes int64
 	Health         func(ctx context.Context) error
 	IsUnavailable  func(error) bool
+	Idempotency    port.IdempotencyStore
 }
 
 type Handler struct {
@@ -67,7 +71,92 @@ func (h *Handler) Routes() http.Handler {
 
 	mux.HandleFunc("GET /channels/{id}", h.channelPage)
 
-	return recoverMW(logMW(h.corsMW(mux)))
+	return recoverMW(logMW(h.corsMW(h.idempotencyMW(mux))))
+}
+
+func (h *Handler) idempotencyMW(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := r.Header.Get("Idempotency-Key")
+		if h.opts.Idempotency == nil || r.Method != http.MethodPost || key == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		scope := idempotencyScope(r)
+		rec, found, err := h.opts.Idempotency.Begin(r.Context(), key, scope)
+		if err != nil {
+			if h.opts.IsUnavailable(err) {
+				http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+			} else {
+				http.Error(w, "internal error", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		if found {
+			if rec.Scope != scope {
+				http.Error(w, "idempotency key already used", http.StatusConflict)
+				return
+			}
+			if !rec.Completed {
+				http.Error(w, "a request with this idempotency key is still in progress", http.StatusConflict)
+				return
+			}
+			w.Header().Set("Idempotent-Replayed", "true")
+			if len(rec.Body) > 0 {
+				w.Header().Set("Content-Type", "application/json")
+			}
+			w.Header().Set("Content-Length", strconv.Itoa(len(rec.Body)))
+			w.WriteHeader(rec.Status)
+			_, _ = w.Write(rec.Body)
+			return
+		}
+
+		cap := &captureWriter{ResponseWriter: w}
+		next.ServeHTTP(cap, r)
+		status := cap.status
+		if status == 0 {
+			status = http.StatusOK
+		}
+		if status >= 500 {
+			_ = h.opts.Idempotency.Discard(r.Context(), key)
+		} else {
+			_ = h.opts.Idempotency.Complete(r.Context(), key, status, cap.body.Bytes())
+		}
+		w.Header().Set("Content-Length", strconv.Itoa(cap.body.Len()))
+		w.WriteHeader(status)
+		_, _ = w.Write(cap.body.Bytes())
+	})
+}
+
+func idempotencyScope(r *http.Request) string {
+	if c, err := r.Cookie(sessionCookie); err == nil {
+		sum := sha256.Sum256([]byte(c.Value))
+		return hex.EncodeToString(sum[:])
+	}
+	return "anon"
+}
+
+type captureWriter struct {
+	http.ResponseWriter
+	status int
+	body   bytes.Buffer
+	wrote  bool
+}
+
+func (c *captureWriter) WriteHeader(code int) {
+	if !c.wrote {
+		c.status = code
+		c.wrote = true
+	}
+}
+
+func (c *captureWriter) Write(b []byte) (int, error) {
+	if !c.wrote {
+		c.status = http.StatusOK
+		c.wrote = true
+	}
+	return c.body.Write(b)
 }
 
 func recoverMW(next http.Handler) http.Handler {

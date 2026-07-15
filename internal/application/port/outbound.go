@@ -56,3 +56,17 @@ type SessionRepository interface {
 	Delete(ctx context.Context, token string) error
 	DeleteExpired(ctx context.Context) error
 }
+
+type IdempotencyRecord struct {
+	Scope     string
+	Status    int
+	Body      []byte
+	Completed bool
+}
+
+type IdempotencyStore interface {
+	Begin(ctx context.Context, key, scope string) (rec IdempotencyRecord, found bool, err error)
+	Complete(ctx context.Context, key string, status int, body []byte) error
+	Discard(ctx context.Context, key string) error
+	DeleteExpired(ctx context.Context) error
+}
